@@ -31,14 +31,20 @@ import com.openkm.rest.util.FormElementComplexList;
 import com.openkm.rest.util.PropertyGroupList;
 import com.openkm.rest.util.SimplePropertyGroup;
 import com.openkm.rest.util.SimplePropertyGroupList;
+import com.openkm.rest.util.SuggestionList;
 import com.openkm.util.FormUtils;
 import com.openkm.ws.util.FormElementComplex;
 import io.swagger.annotations.Api;
+
+import org.apache.commons.io.IOUtils;
+import org.apache.cxf.jaxrs.ext.multipart.Attachment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
+
+import java.io.InputStream;
 import java.util.*;
 
 @Consumes({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
@@ -265,4 +271,46 @@ public class PropertyGroupService {
 			throw new GenericException(e);
 		}
 	}
+
+    @GET
+    @Path("/getSuggestions")
+    public SuggestionList getSuggestions(@QueryParam("nodeId") String nodeId, @QueryParam("grpName") String grpName,
+                                         @QueryParam("propName") String propName) throws GenericException {
+        try {
+            log.debug("getSuggestions()");
+            PropertyGroupModule cm = ModuleManager.getPropertyGroupModule();
+            SuggestionList sl = new SuggestionList();
+            sl.getList().addAll(cm.getSuggestions(null, nodeId, grpName, propName));
+            log.debug("getSuggestions: {}", sl);
+            return sl;
+        } catch (Exception e) {
+            throw new GenericException(e);
+        }
+    }
+
+    @POST
+    @Path("/registerDefinition")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    public void registerDefinition(List<Attachment> atts) throws GenericException {
+        log.debug("registerDefinition({})", atts);
+        InputStream is = null;
+
+        try {
+            for (Attachment att : atts) {
+                if ("pgDef".equals(att.getContentDisposition().getParameter("name"))) {
+                    is = att.getDataHandler().getInputStream();
+                }
+            }
+
+            String pgDef = IOUtils.toString(is);
+            PropertyGroupModule cm = ModuleManager.getPropertyGroupModule();
+            cm.registerDefinition(null, pgDef);
+            log.debug("registerDefinition: void");
+        } catch (Exception e) {
+            throw new GenericException(e);
+        } finally {
+            IOUtils.closeQuietly(is);
+        }
+    }
+
 }
